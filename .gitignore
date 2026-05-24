@@ -12,4 +12,5 @@ __pycache__/
 *.pyd
 datasets/mvtec
 checkpoints.DS_Store
+checkpoints
 .DS_Store
