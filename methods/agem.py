@@ -4,12 +4,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from .utils.base_method import BaseMethodwDNE
-try:
-    import quadprog
-except:
-    print('Warning: GEM and A-GEM cannot be used on Windows (quadprog required)')
-
-
+import platform
 
 def store_grad(params, grads, grad_dims):
     """
@@ -55,6 +50,18 @@ def project(gxy: torch.Tensor, ger: torch.Tensor) -> torch.Tensor:
 class AGEM(BaseMethodwDNE):
     def __init__(self, args, net, optimizer, scheduler):
         super(AGEM, self).__init__(args, net, optimizer, scheduler)
+        try:
+            import quadprog
+            HAS_QUADPROG = True
+        except ImportError:
+            HAS_QUADPROG = False
+
+        IS_WINDOWS = platform.system() == "Windows"
+        if IS_WINDOWS and not HAS_QUADPROG:
+            print("Warning: GEM and A-GEM cannot be used on Windows (quadprog required)")
+        elif not HAS_QUADPROG:
+            print("Warning: quadprog not installed, GEM/A-GEM disabled")
+
         self.buffer = Buffer(self.args.model.buffer_size, self.args.device)
         self.cross_entropy = nn.CrossEntropyLoss()
         self.current_task = 0

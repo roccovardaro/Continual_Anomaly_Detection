@@ -4,7 +4,7 @@ import torch
 import random
 import yaml
 import re
-
+from pathlib import Path
 class Namespace(object):
     def __init__(self, somedict):
         for key, value in somedict.items():
@@ -36,16 +36,19 @@ def str2bool(v):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config-file', default='./configs/cad.yaml', type=str, help="xxx.yaml")
-    parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
-    parser.add_argument('--data_dir', type=str, default="../datasets/mvtec")
+    default_device = 'mps' if torch.backends.mps.is_available() else ('cuda' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--device', type=str, default=default_device)
+    parser.add_argument('--data_dir', type=str, default="datasets/mvtec")
     parser.add_argument('--mtd_dir', type=str, default="../datasets/mtd_ano_mask")
-    parser.add_argument('--save_checkpoint', type=str2bool, default=False, help='save checkpoint or not.')
+    parser.add_argument('--save_checkpoint', type=str2bool, default=True, help='save checkpoint or not.')
     parser.add_argument('--save_path', type=str, default="./checkpoints")
     parser.add_argument('--noise_ratio', type=float, default=0)
     parser.add_argument('--seed', type=int, default=42)
-    args = parser.parse_args()
+    #args = parser.parse_args()
+    args, unknown = parser.parse_known_args() # FIX NOTEBOOK
+    print("DATA DIR:", args.data_dir)
+    print("EXISTS:", Path(args.data_dir).exists())
 
-    print(args)
     with open(args.config_file, 'r') as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
         print(data)
@@ -55,3 +58,5 @@ def get_args():
     set_deterministic(args.seed)
 
     return args
+
+#get_args()

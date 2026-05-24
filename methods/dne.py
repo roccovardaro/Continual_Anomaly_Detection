@@ -26,7 +26,9 @@ class DNE(BaseMethod):
 
         self.optimizer.zero_grad()
         with torch.no_grad():
+            #CALCOLA GLI EMBEDDING DEL MODELLO SENZA AGGIORNARE I PESI
             noaug_embeds = self.net.forward_features(no_strongaug_inputs)
+            #GLI EMBEDDING VENGONO SALVATI IN ONE_EPOCH_EMBEDS PER AGGIORNARE LA DENSITA' PIU TARDI
             one_epoch_embeds.append(noaug_embeds.cpu())
         out, _ = self.net(inputs)
         loss = self.cross_entropy(out, labels)
@@ -40,7 +42,7 @@ class DNE(BaseMethod):
         if self.args.eval.eval_classifier == 'density':
             one_epoch_embeds = torch.cat(one_epoch_embeds)
             one_epoch_embeds = F.normalize(one_epoch_embeds, p=2, dim=1)
-            mean, cov = density.fit(one_epoch_embeds)
+            mean, cov = density.fit(one_epoch_embeds) #STIMA MEDIA E COVARIANZA DEGLI EMBEDDING
 
             if len(task_wise_mean) < t + 1:
                 task_wise_mean.append(mean)

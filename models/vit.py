@@ -7,8 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from timm.models.layers import PatchEmbed, Mlp, DropPath, trunc_normal_, lecun_normal_
-from timm.models.helpers import build_model_with_cfg, named_apply, adapt_input_conv
+from timm.layers import PatchEmbed, Mlp, DropPath, trunc_normal_, lecun_normal_
+from timm.models import build_model_with_cfg, named_apply, adapt_input_conv
 
 _logger = logging.getLogger(__name__)
 
@@ -230,6 +230,7 @@ class ViT(nn.Module):
         if self.num_tokens == 2:
             self.head_dist = nn.Linear(self.embed_dim, self.num_classes) if num_classes > 0 else nn.Identity()
 
+    # PRODUCE GLI EMBEDDING DEL MODELLO
     def forward_features(self, x):
         x = self.patch_embed(x)
         cls_token = self.cls_token.expand(x.shape[0], -1, -1)  # stole cls_tokens impl from Phil Wang, thanks

@@ -1,5 +1,5 @@
 import numpy as np
-from timm.models.layers import to_2tuple
+from timm.layers import to_2tuple
 import torch
 from PIL import Image
 from torchvision import transforms

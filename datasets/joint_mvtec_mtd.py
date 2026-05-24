@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from torch.utils.data import Dataset
 from pathlib import Path
 from PIL import Image
@@ -5,7 +7,6 @@ from joblib import Parallel, delayed
 import os
 import numpy as np
 import pandas as pd
-from collections import Iterable
 
 def flatten(items, ignore_types=(str, bytes)):
     for x in items:

@@ -1,0 +1,14 @@
+# JetBrains IDE folders (.idea) in all directories
+.idea/
+**/.idea/
+
+# Python cache folders (__pycache__) in all directories
+__pycache__/
+**/__pycache__/
+
+# Python compiled files
+*.pyc
+*.pyo
+*.pyd
+datasets/mvtec
+checkpoints
