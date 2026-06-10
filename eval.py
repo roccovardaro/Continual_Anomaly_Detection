@@ -104,7 +104,7 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
             with torch.no_grad():
                 for x, label in dataloader_test:
                     logit, embed = net(x.to(args.device))
-                    _, logit = torch.max(logit, 1)
+                    _, logit = torch.max(logit, 1) # restituisce il numero con la probabilità più alta
                     logits.append(logit.cpu())
                     embeds.append(embed.cpu())
                     labels.append(label.cpu())
@@ -112,7 +112,7 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
             # norm embeds
             if args.eval.eval_classifier == 'density':
                 embeds = F.normalize(embeds, p=2, dim=1)  # embeds.shape=(2*bs, emd_dim)
-                distances = density.predict(embeds)  # distances.shape=(2*bs)
+                distances = density.predict(embeds)  # distances.shape=(2*bs) # Qui viene calcolata la distanza di Mahalanobis
                 fpr, tpr, _ = roc_curve(labels, distances)
             elif args.eval.eval_classifier == 'head':
                 fpr, tpr, _ = roc_curve(labels, logits)
@@ -123,10 +123,11 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
             all_labels.append(labels)
             print('data_type:', learned_task[:], 'auc:', roc_auc, '**' * 11)
 
+
             if args.eval.visualization:
                 name = f'{args.model.method}_task{len(learned_tasks)}_{learned_task[0]}_epoch{epoch}'
-                his_save_path = f'./his_results/{args.model.method}{args.model.name}_{args.train.num_epochs}e_order{args.data_order}_seed{args.seed}'
-                tnse_save_path = f'./tsne_results/{args.model.method}{args.model.name}_{args.train.num_epochs}e_order{args.data_order}_seed{args.seed}'
+                his_save_path = f'./his_results/{args.model.method}{args.model.name}_{args.train.num_epochs}e_order{args.dataset.dataset_order}_seed{args.seed}'
+                tnse_save_path = f'./tsne_results/{args.model.method}{args.model.name}_{args.train.num_epochs}e_order{args.dataset.dataset_order}_seed{args.seed}'
                 plot_tsne(labels, np.array(embeds), defect_name=name, save_path=tnse_save_path)
                 # These parameters can be modified based on the visualization effect
                 start, thresh, interval = 0, 120, 1

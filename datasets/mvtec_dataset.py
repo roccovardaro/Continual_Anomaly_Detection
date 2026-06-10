@@ -82,4 +82,4 @@ class MVTecAD(Dataset):
             img = img.resize((self.size, self.size)).convert("RGB")
             if self.transform is not None:
                 img = self.transform(img)
-            return img, label != "good"
+            return img, label != "good" #RESTITUISCE FALSE (0) SE IMG E' GOOOD, 1 ALTRIMENTI CASO IN CUI E' DIFETTATA

@@ -2,6 +2,7 @@ from .resnet import ResNetModel
 from .vit import ViT
 from .csflow_net import NetCSFlow
 from .revdis_net import NetRevDis
+from .efficientnet import EfficientNetModel
 
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
@@ -12,6 +13,10 @@ from utils.optimizer import get_optimizer
 def get_net_optimizer_scheduler(args):
     if args.model.name == 'resnet':
         net = ResNetModel(pretrained=args.model.pretrained, num_classes=args.train.num_classes)
+        optimizer = get_optimizer(args, net)
+        scheduler = CosineAnnealingWarmRestarts(optimizer, args.train.num_epochs)
+    elif args.model.name == 'efficientnet':
+        net = EfficientNetModel(pretrained=args.model.pretrained, num_classes=args.train.num_classes)
         optimizer = get_optimizer(args, net)
         scheduler = CosineAnnealingWarmRestarts(optimizer, args.train.num_epochs)
     elif args.model.name == 'vit':

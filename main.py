@@ -8,6 +8,8 @@ from eval import eval_model
 from methods import get_model
 from models import get_net_optimizer_scheduler
 from utils.density import GaussianDensityTorch
+import warnings
+warnings.filterwarnings("ignore")
 
 #task_wise_mean: è semplicemente una lista che tiene traccia della media degli embedding per ciascun task nel contesto del continual learning.
 #task_wise_cov: contiene la matrice di covarianza degli embedding di ogni task.
@@ -46,6 +48,7 @@ def main(args):
 
         net.train()
         for epoch in tqdm(range(args.train.num_epochs)):
+            print('---' * 2, f'Epoch:{epoch}', '---' * 2)
             one_epoch_embeds = [] # RACCOGLIE GLI EMBEDDING GENERATI DURANTE L'EPOCA
             if args.model.method == 'upper':
                 for dataloader_train in dataloaders_train:
@@ -53,10 +56,12 @@ def main(args):
                         inputs, labels = get_inputs_labels(data)
                         model(epoch, inputs, labels, one_epoch_embeds, t, extra_para)
             else:
+                print('Inizio Addestramento')
                 for batch_idx, (data) in enumerate(train_dataloader):
-                    print("batch:",batch_idx)
                     inputs, labels = get_inputs_labels(data)
+
                     model(epoch, inputs, labels, one_epoch_embeds, t, extra_para) # va ad aggiornare direttamente le liste
+                print('Fine Addestramento')
 
             #SE La valutazione periodica è attiva, aggiorna lo stimatore densità e valuta il modello
             if args.train.test_epochs > 0 and (epoch+1) % args.train.test_epochs == 0:

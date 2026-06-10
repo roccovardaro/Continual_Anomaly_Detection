@@ -14,3 +14,5 @@ datasets/mvtec
 checkpoints.DS_Store
 checkpoints
 .DS_Store
+his_results
+tsne_results

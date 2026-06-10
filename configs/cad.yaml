@@ -12,7 +12,7 @@ dataset:
 
 
 model:
-  name: vit # resnet, vit, net_csflow, net_revdis
+  name: efficientnet # resnet, vit, net_csflow, net_revdis
   pretrained: True
   method: dne # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne
@@ -37,8 +37,8 @@ train:
   warmup_lr: 0
   base_lr: 0.0001 # 0.0001; csflow: 0.0002; revdis:0.005
   final_lr: 0
-  num_epochs: 2 #50
-  batch_size: 16 # 32, csflow:16
+  num_epochs: 10 #50
+  batch_size: 8 # 32, csflow:16
   test_epochs: 1 #10
   alpha: 0.4
   beta: 0.5

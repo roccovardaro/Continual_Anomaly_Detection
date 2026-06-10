@@ -32,7 +32,7 @@ def plot_tsne(labels, embeds, defect_name=None, save_path = None, **kwargs: Dict
     tsne = TSNE(
         n_components=2,
         verbose=1,
-        n_iter=kwargs.get("n_iter", 1000),
+        max_iter=kwargs.get("n_iter", 1000),
         learning_rate=kwargs.get("learning_rate", 100),
         perplexity=kwargs.get("perplexity", 28),
         early_exaggeration=kwargs.get("early_exaggeration", 12),
