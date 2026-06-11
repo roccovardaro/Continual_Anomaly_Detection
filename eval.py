@@ -1,4 +1,4 @@
-from sklearn.metrics import roc_curve, auc, roc_auc_score
+from sklearn.metrics import roc_curve, auc, roc_auc_score, f1_score
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -97,7 +97,7 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
     elif args.model.method == 'revdis':
         revdis_eval(args, epoch, dataloaders_test, learned_tasks, net)
     else:
-        all_roc_auc, all_embeds, all_labels = [], [], []
+        all_roc_auc, all_acc, all_f1, all_embeds, all_labels = [], [], [], [], []
         task_num = 0
         for idx, (dataloader_test,  learned_task) in enumerate(zip(dataloaders_test, learned_tasks)):
             labels, embeds, logits = [], [], []
@@ -117,11 +117,15 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
             elif args.eval.eval_classifier == 'head':
                 fpr, tpr, _ = roc_curve(labels, logits)
             roc_auc = auc(fpr, tpr)
+            acc = (labels == logits).float().mean().item()
+            f1 = f1_score(labels, logits, average='macro')
             all_roc_auc.append(roc_auc * len(learned_task))
+            all_acc.append(acc * len(learned_task))
+            all_f1.append(f1 * len(learned_task))
             task_num += len(learned_task)
             all_embeds.append(embeds)
             all_labels.append(labels)
-            print('data_type:', learned_task[:], 'auc:', roc_auc, '**' * 11)
+            print('data_type:', learned_task[:], f'auc: {roc_auc:.4f}', f'acc: {acc:.4f}', f'f1: {f1:.4f}', '**' * 11)
 
 
             if args.eval.visualization:
@@ -135,7 +139,7 @@ def eval_model(args, epoch, dataloaders_test, learned_tasks, net, density):
                                   thresh=thresh, interval=interval,
                                   name=name, save_path=his_save_path)
 
-        print('mean_auc:', np.sum(all_roc_auc) / task_num, '**' * 11)
+        print(f'mean_auc: {np.sum(all_roc_auc) / task_num:.4f}', f'mean_acc: {np.sum(all_acc) / task_num:.4f}', f'mean_f1: {np.sum(all_f1) / task_num:.4f}', '**' * 11)
 
 
 if __name__ == "__main__":
@@ -146,5 +150,6 @@ if __name__ == "__main__":
         train_dataloader, dataloaders_train, dataloaders_test, learned_tasks, data_train_nums, all_test_filenames = get_dataloaders(args, t, dataloaders_train, dataloaders_test, learned_tasks, all_test_filenames)
 
     epoch = args.train.num_epochs
-    net, density = torch.load(f'{args.save_path}/net.pth'), torch.load(f'{args.save_path}/density.pth')
+    net = torch.load(f'{args.save_path}/net.pth', weights_only=False)
+    density = torch.load(f'{args.save_path}/density.pth', weights_only=False)
     eval_model(args, epoch, dataloaders_test, learned_tasks, net, density)

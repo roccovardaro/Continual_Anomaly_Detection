@@ -12,7 +12,7 @@ dataset:
 
 
 model:
-  name: efficientnet # resnet, vit, net_csflow, net_revdis
+  name: convnext # resnet, vit, net_csflow, net_revdis, convnext
   pretrained: True
   method: dne # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne

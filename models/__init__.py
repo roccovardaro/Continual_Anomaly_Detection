@@ -3,6 +3,7 @@ from .vit import ViT
 from .csflow_net import NetCSFlow
 from .revdis_net import NetRevDis
 from .efficientnet import EfficientNetModel
+from .convnext import ConvNeXtBackbone
 
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
@@ -17,6 +18,10 @@ def get_net_optimizer_scheduler(args):
         scheduler = CosineAnnealingWarmRestarts(optimizer, args.train.num_epochs)
     elif args.model.name == 'efficientnet':
         net = EfficientNetModel(pretrained=args.model.pretrained, num_classes=args.train.num_classes)
+        optimizer = get_optimizer(args, net)
+        scheduler = CosineAnnealingWarmRestarts(optimizer, args.train.num_epochs)
+    elif args.model.name == 'convnext':
+        net = ConvNeXtBackbone(pretrained=args.model.pretrained, num_classes=args.train.num_classes)
         optimizer = get_optimizer(args, net)
         scheduler = CosineAnnealingWarmRestarts(optimizer, args.train.num_epochs)
     elif args.model.name == 'vit':
