@@ -12,9 +12,9 @@ dataset:
 
 
 model:
-  name: convnext # resnet, vit, net_csflow, net_revdis, convnext
+  name: efficientnet # resnet, vit, net_csflow, net_revdis, convnext
   pretrained: True
-  method: dne # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
+  method: dne_ewc2 # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne
   fix_head: True
   with_dne: True
@@ -37,12 +37,14 @@ train:
   warmup_lr: 0
   base_lr: 0.0001 # 0.0001; csflow: 0.0002; revdis:0.005
   final_lr: 0
-  num_epochs: 10 #50
+  num_epochs: 20 #50
   batch_size: 8 # 32, csflow:16
-  test_epochs: 1 #10
+  test_epochs: 5 #10
   alpha: 0.4
   beta: 0.5
   num_classes: 2
+  ewc_lambda: 5000.0  # peso della penalizzazione EWC
+  real_embed_ratio: 0.05  # percentuale di embedding reali dalla backbone per densità (solo per dne_hybrid)
 
 eval:
   eval_classifier: density # density, head

@@ -5,8 +5,6 @@ import numpy as np
 import torch.nn.functional as F
 from .utils.base_method import BaseMethod
 
-
-
 class DNE(BaseMethod):
     def __init__(self, args, net, optimizer, scheduler):
         super(DNE, self).__init__(args, net, optimizer, scheduler)
@@ -60,26 +58,22 @@ class DNE(BaseMethod):
 
             #SECONDA PARTE
             # Questa parte serve a preparare il modello per la fase di test (inferenza)
-            with warnings.catch_warnings(), np.errstate(all='ignore'):
-                warnings.simplefilter("ignore")
-                task_wise_embeds = []
-                for i in range(t + 1):
-                    if i < t: # task passati
-                        past_mean, past_cov, past_nums = task_wise_mean[i], task_wise_cov[i], task_wise_train_data_nums[i]
-                        past_embeds = np.random.multivariate_normal(past_mean, past_cov, size=int(past_nums * (1 - self.args.noise_ratio))) # genera vettori fittizi (dati ricostruiti puliti)
-                        task_wise_embeds.append(torch.FloatTensor(past_embeds))
-                        noise_mean, noise_cov = np.random.rand(past_mean.shape[0]), np.random.rand(past_cov.shape[0], past_cov.shape[1])
-                        noise = np.random.multivariate_normal(noise_mean, noise_cov, size=int(past_nums * self.args.noise_ratio)) #genera vettori fittizi casuali (rumore)
-                        task_wise_embeds.append(torch.FloatTensor(noise))
-                    else:
-                        task_wise_embeds.append(one_epoch_embeds)
-                for_eval_embeds = torch.cat(task_wise_embeds, dim=0)
-                for_eval_embeds = F.normalize(for_eval_embeds, p=2, dim=1)
-                _, _ = density.fit(for_eval_embeds)
+            task_wise_embeds = []
+            for i in range(t + 1):
+                if i < t: # task passati
+                    past_mean, past_cov, past_nums = task_wise_mean[i], task_wise_cov[i], task_wise_train_data_nums[i]
+                    past_embeds = np.random.multivariate_normal(past_mean, past_cov, size=int(past_nums * (1 - self.args.noise_ratio))) # genera vettori fittizi (dati ricostruiti puliti)
+                    task_wise_embeds.append(torch.FloatTensor(past_embeds))
+                    noise_mean, noise_cov = np.random.rand(past_mean.shape[0]), np.random.rand(past_cov.shape[0], past_cov.shape[1])
+                    noise = np.random.multivariate_normal(noise_mean, noise_cov, size=int(past_nums * self.args.noise_ratio)) #genera vettori fittizi casuali (rumore)
+                    task_wise_embeds.append(torch.FloatTensor(noise))
+                else:
+                    task_wise_embeds.append(one_epoch_embeds)
+            for_eval_embeds = torch.cat(task_wise_embeds, dim=0)
+            for_eval_embeds = F.normalize(for_eval_embeds, p=2, dim=1)
+            _, _ = density.fit(for_eval_embeds)
             return density
         else:
             pass
 
         # CREAZIONE DI UNA DENSITA BASATA SU TUTTI I VETTORI RICOSTRUTI DA OGNI DISTRIBUZIONE UNA PER OGNI TASK
-
-

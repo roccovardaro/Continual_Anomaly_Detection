@@ -4,6 +4,8 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 from sklearn.manifold import TSNE
+import umap
+
 from sklearn.utils import shuffle
 import matplotlib.pyplot as plt
 from typing import Any, Dict, Tuple, Union
@@ -31,7 +33,7 @@ def plot_tsne(labels, embeds, defect_name=None, save_path = None, **kwargs: Dict
     """
     tsne = TSNE(
         n_components=2,
-        verbose=1,
+        verbose=0,
         max_iter=kwargs.get("n_iter", 1000),
         learning_rate=kwargs.get("learning_rate", 100),
         perplexity=kwargs.get("perplexity", 28),
@@ -62,6 +64,48 @@ def plot_tsne(labels, embeds, defect_name=None, save_path = None, **kwargs: Dict
     return
 
 
+def plot_umap(labels, embeds, defect_name=None, save_path = None, **kwargs: Dict[str, Any]):
+    """UMAP visualize
+    Args:
+        labels (Tensor): labels of test and train
+        embeds (Tensor): embeds of test and train
+        defect_name ([str], optional): same as <defect_name> in roc_auc. Defaults to None.
+        save_path ([str], optional): same as <defect_name> in roc_auc. Defaults to None.
+    """
+    reducer = umap.UMAP(
+        n_components=2,
+        verbose=0,
+        n_neighbors=kwargs.get("n_neighbors", 15),
+        min_dist=kwargs.get("min_dist", 0.1),
+        metric=kwargs.get("metric", "cosine")
+    )
+    
+    embeds, labels = shuffle(embeds, labels)
+    # Ensure embeds is a numpy array for UMAP
+    embeds_np = embeds if isinstance(embeds, np.ndarray) else embeds.numpy()
+    
+    umap_results = reducer.fit_transform(embeds_np)
+
+    cmap = plt.cm.get_cmap("spring")
+    colors = np.vstack((np.array([[0, 1. ,0, 1.]]), cmap([0, 256//3, (2*256)//3])))
+    legends = ["good", "anomaly"]
+    (_, ax) = plt.subplots(1)
+    plt.title(f'UMAP: {defect_name}')
+    for label in torch.unique(labels):
+        res = umap_results[torch.where(labels==label)]
+        ax.plot(*res.T, marker="*", linestyle="", ms=5, label=legends[label], color=colors[label])
+        ax.legend(loc="best")
+    plt.xticks([])
+    plt.yticks([])
+
+    save_images = save_path if save_path else './umap_results'
+    os.makedirs(save_images, exist_ok=True)
+    image_path = os.path.join(save_images, defect_name+'_umap.pdf') if defect_name else os.path.join(save_images, 'umap.pdf')
+    plt.savefig(image_path)
+    plt.close()
+    return
+
+
 def compare_histogram(scores, classes, start=0 ,thresh=2, interval=1, n_bins=64, name=None, save_path=None):
     classes = deepcopy(classes)
     classes[classes > 0] = 1
@@ -79,9 +123,9 @@ def compare_histogram(scores, classes, start=0 ,thresh=2, interval=1, n_bins=64,
     ticks = np.linspace(start, thresh, interval)
     labels = [str(i) for i in ticks[:-1]] + ['>' + str(thresh)]
 
-    save_images = save_path if save_path else './his_results1'
+    save_images = save_path if save_path else './hist_results'
     os.makedirs(save_images, exist_ok=True)
-    image_path = os.path.join(save_images, name + '_his.pdf') if name else os.path.join(save_images, 'his.pdf')
+    image_path = os.path.join(save_images, name + '_hist.pdf') if name else os.path.join(save_images, 'hist.pdf')
 
     plt.yticks(rotation=24)
     plt.xlabel(r'$-log(p(z))$', fontsize=10)
@@ -112,4 +156,3 @@ def cal_anomaly_map(fs_list, ft_list, out_size=224, amap_mode='mul'):
         else:
             anomaly_map += a_map
     return anomaly_map, a_map_list
-

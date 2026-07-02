@@ -16,3 +16,4 @@ checkpoints
 .DS_Store
 his_results
 tsne_results
+umap_results
