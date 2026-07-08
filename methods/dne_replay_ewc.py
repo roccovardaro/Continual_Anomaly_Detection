@@ -5,43 +5,42 @@ import numpy as np
 import torch.nn.functional as F
 from .utils.base_method import BaseMethod
 import copy
+from torch.utils.data import DataLoader, Subset
+from datasets.transforms import no_aug_transformation
 
 
-class DNE_Hybrid(BaseMethod):
+class DNE_Replay_EWC(BaseMethod):
     """
-    DNE con Embedding Ibridi (Sintetici + Reali).
+    DNE con Image Replay Buffer + EWC (Kirkpatrick et al., PNAS 2017).
     
-    Miglioramento rispetto al DNE originale:
-    Nella fase di stima della densità per i task passati, invece di usare
-    solo embedding sintetici generati da una distribuzione gaussiana multivariata,
-    viene introdotta una percentuale (default 5%) di embedding REALI generati
-    dalla backbone alla fine di ogni task. Gli embedding reali vengono calcolati
-    una volta sola in end_task() e salvati per essere riutilizzati nei task
-    successivi, senza necessità di ricalcolarli ogni epoca.
+    Strategia A: invece di salvare embedding reali (che diventano stale
+    quando la backbone cambia nei task successivi), salva un buffer di
+    IMMAGINI raw e ricalcola gli embedding on-the-fly con la backbone
+    corrente durante training_epoch. Questo garantisce che gli embedding
+    reali siano sempre coerenti con il feature space corrente.
     
-    Composizione degli embedding per ogni task passato:
-    - real_embed_ratio (5%): embedding reali salvati alla fine del task
-    - noise_ratio: rumore casuale (invariato rispetto a DNE)
-    - il resto: embedding sintetici dalla distribuzione gaussiana stimata
+    EWC standard: mantiene una Fisher separata per ogni task passato e somma
+    la penalizzazione su TUTTI i task.
     """
 
     def __init__(self, args, net, optimizer, scheduler):
-        super(DNE_Hybrid, self).__init__(args, net, optimizer, scheduler)
+        super(DNE_Replay_EWC, self).__init__(args, net, optimizer, scheduler)
         self.loss_fn = nn.CrossEntropyLoss()
 
         # EWC (Paper: Kirkpatrick et al., PNAS 2017)
-        # fisher= matrice di Fisher; optar= parametri ottimali
+        # fisher= matrice di Fisher; optpar= parametri ottimali
         # Lista di dizionari {fisher, optpar} — uno per ogni task completato.
         # Nel paper, la penalizzazione somma su TUTTI i task passati,
         # quindi serve mantenere una Fisher separata per ogni task.
         self.ewc_tasks = []
         self.ewc_lambda = getattr(args.train, 'ewc_lambda', 5000.0)
 
-        # Percentuale di embedding reali dalla backbone per la stima di densità
+        # Percentuale di immagini da salvare per replay nella stima di densità
         self.real_embed_ratio = getattr(args.train, 'real_embed_ratio', 0.05)
 
-        # Embedding reali salvati alla fine di ogni task (lista di tensori)
-        self.past_real_embeds = []
+        # Buffer di immagini raw salvate alla fine di ogni task (lista di tensori CPU)
+        # Le immagini vengono ri-processate con la backbone corrente in training_epoch
+        self.past_replay_images = []
 
     def forward(self, epoch, inputs, labels, one_epoch_embeds, t, *args):
         if self.args.dataset.strong_augmentation:
@@ -51,7 +50,7 @@ class DNE_Hybrid(BaseMethod):
             no_strongaug_inputs = inputs
 
         if self.args.model.fix_head:
-            if t >= 1: #Congelamento della Testa Questo è il passaggio fondamentale per evitare il catastrophic forgetting
+            if t >= 1: #Congelamento della Testa
                 for param in self.net.head.parameters():
                     param.requires_grad = False
 
@@ -62,7 +61,7 @@ class DNE_Hybrid(BaseMethod):
             #GLI EMBEDDING VENGONO SALVATI IN ONE_EPOCH_EMBEDS PER AGGIORNARE LA DENSITA' PIU TARDI
             one_epoch_embeds.append(noaug_embeds.cpu())
         
-        # L'Addestramento Vero e Proprio (se task > 1 e head è fixato, non aggiorna la testa ma solo il backbone)
+        # L'Addestramento Vero e Proprio
         out, current_embeds = self.net(inputs)
         loss = self.loss_fn(out, labels)
         
@@ -107,6 +106,7 @@ class DNE_Hybrid(BaseMethod):
             # IBRIDO: per i task passati usa un mix di embedding reali + sintetici + rumore
             with warnings.catch_warnings(), np.errstate(all='ignore'):
                 warnings.simplefilter("ignore")
+                device = next(self.net.parameters()).device
                 task_wise_embeds = []
                 for i in range(t + 1):
                     if i < t: # task passati
@@ -114,21 +114,21 @@ class DNE_Hybrid(BaseMethod):
                         
                         # Calcola il numero di embedding per ogni tipo
                         n_noise = int(past_nums * self.args.noise_ratio)
-                        n_real = int(past_nums * self.real_embed_ratio)
-                        n_synth = max(0, past_nums - n_noise - n_real)
-
-                        # 1. Embedding REALI salvati alla fine del task (5%)
-                        if n_real > 0 and i < len(self.past_real_embeds):
-                            saved_embeds = self.past_real_embeds[i]
-                            # Campiona casualmente n_real embedding dal pool salvato
-                            if saved_embeds.size(0) > n_real:
-                                indices = torch.randperm(saved_embeds.size(0))[:n_real]
-                                real_embeds = saved_embeds[indices]
-                            else:
-                                real_embeds = saved_embeds
+                        
+                        # 1. Embedding REALI ricalcolati on-the-fly con la backbone CORRENTE
+                        #    Questo elimina il problema degli embedding stale
+                        n_saved_real = 0
+                        if i < len(self.past_replay_images) and self.past_replay_images[i].numel() > 0:
+                            replay_imgs = self.past_replay_images[i]
+                            with torch.no_grad():
+                                real_embeds = self.net.forward_features(replay_imgs.to(device))
+                                real_embeds = F.normalize(real_embeds, p=2, dim=1).cpu()
+                            n_saved_real = real_embeds.size(0)
                             task_wise_embeds.append(real_embeds)
 
-                        # 2. Embedding SINTETICI dalla distribuzione gaussiana (95% - noise_ratio)
+                        n_synth = max(0, past_nums - n_noise - n_saved_real)
+
+                        # 2. Embedding SINTETICI dalla distribuzione gaussiana
                         if n_synth > 0:
                             past_embeds = np.random.multivariate_normal(past_mean, past_cov, size=n_synth)
                             task_wise_embeds.append(torch.FloatTensor(past_embeds))
@@ -148,7 +148,6 @@ class DNE_Hybrid(BaseMethod):
         else:
             pass
 
-        # CREAZIONE DI UNA DENSITA BASATA SU TUTTI I VETTORI RICOSTRUTI DA OGNI DISTRIBUZIONE UNA PER OGNI TASK
 
     def end_task(self, train_dataloader):
         # Salva una copia congelata del modello alla fine del task per eventuali altri usi
@@ -157,12 +156,11 @@ class DNE_Hybrid(BaseMethod):
         for param in self.old_net.parameters():
             param.requires_grad = False
 
-        # Calcola e salva gli embedding reali dalla backbone per i task futuri
-        self._save_real_embeddings(train_dataloader)
+        # Salva un buffer di immagini raw per replay nei task futuri
+        self._save_replay_images(train_dataloader)
             
         # CALCOLO DELLA MATRICE DI FISHER (EWC - Paper: Kirkpatrick et al. 2017)
-        # A differenza della versione precedente dove self.fisher veniva sovrascritta,
-        # qui calcoliamo la Fisher per questo task e la AGGIUNGIAMO alla lista.
+        # Calcoliamo la Fisher per questo task e la AGGIUNGIAMO alla lista.
         # Così la penalizzazione nel forward può sommare su TUTTI i task passati.
         task_fisher = {}
         task_optpar = {}
@@ -177,7 +175,7 @@ class DNE_Hybrid(BaseMethod):
                 
         self.net.eval()
 
-        #LOOP SU DATASET
+        # LOOP SU DATASET
         for batch_idx, data in enumerate(train_dataloader):
             if isinstance(data, list):
                 inputs = [x.to(device) for x in data]
@@ -213,36 +211,59 @@ class DNE_Hybrid(BaseMethod):
                     
         self.net.train()
 
-    def _save_real_embeddings(self, train_dataloader):
+    def _save_replay_images(self, train_dataloader):
         """
-        Calcola e salva gli embedding reali dalla backbone alla fine del task.
+        Salva un buffer di immagini raw (senza augmentation) alla fine del task.
         
-        Gli embedding vengono calcolati una volta sola e salvati in
-        self.past_real_embeds come tensori normalizzati L2. Nei task successivi,
-        un sottoinsieme (controllato da real_embed_ratio) verrà campionato
-        casualmente da questi embedding per arricchire la stima di densità.
+        Le immagini vengono salvate come tensori CPU e ricalcolate con la
+        backbone corrente durante training_epoch, eliminando il problema
+        degli embedding stale.
         """
-        device = next(self.net.parameters()).device
-        all_embeds = []
 
-        was_training = self.net.training
-        self.net.eval()
-        with torch.no_grad():
-            for data in train_dataloader:
-                if isinstance(data, list):
-                    inputs = [x.to(device) for x in data]
-                    inputs = torch.cat(inputs, dim=0)
-                else:
-                    inputs = data.to(device)
+        dataset = train_dataloader.dataset
+        total_samples = len(dataset)
+        
+        # Calcola quante immagini salvare
+        n_real = int(total_samples * self.real_embed_ratio)
+        if n_real <= 0:
+            print(f"[DNE_Hybrid_2] real_embed_ratio troppo basso, nessuna immagine salvata per il task {len(self.past_replay_images)}")
+            self.past_replay_images.append(torch.empty(0))
+            return
 
-                embeds = self.net.forward_features(inputs)
-                all_embeds.append(embeds.cpu())
+        # 1. Campiona gli indici
+        indices = torch.randperm(total_samples)[:n_real].tolist()
 
-        if was_training:
-            self.net.train()
+        # 2. Crea un subset con solo le immagini campionate
+        subset = Subset(dataset, indices)
 
-        all_embeds = torch.cat(all_embeds, dim=0)
-        # Normalizza L2 come tutti gli altri embedding usati nella densità
-        all_embeds = F.normalize(all_embeds, p=2, dim=1)
-        self.past_real_embeds.append(all_embeds)
-        print(f"[DNE_Hybrid] Salvati {all_embeds.size(0)} embedding reali per il task {len(self.past_real_embeds)-1}")
+        # 3. Salva la transform originale e sostituisci con no_aug
+        #    per ottenere immagini pulite (senza augmentation)
+        original_transform = dataset.transform
+        dataset.transform = no_aug_transformation(self.args)
+        
+        # 4. Crea un dataloader temporaneo per il subset campionato
+        sample_loader = DataLoader(
+            subset,
+            batch_size=train_dataloader.batch_size,
+            shuffle=False,
+            num_workers=0  # evita problemi con fork e transform modificata
+        )
+
+        # 5. Raccoglie le immagini raw (tensori CPU, senza forward pass)
+        sampled_images = []
+        for data in sample_loader:
+            if isinstance(data, list):
+                imgs = torch.cat(data, dim=0)
+            else:
+                imgs = data
+            sampled_images.append(imgs.cpu())
+
+        # 6. Ripristina la transform originale
+        dataset.transform = original_transform
+
+        sampled_images = torch.cat(sampled_images, dim=0)
+            
+        self.past_replay_images.append(sampled_images)
+        print(f"[DNE_Hybrid_2] Salvate {sampled_images.size(0)} immagini replay "
+              f"({sampled_images.shape}, {sampled_images.nelement() * sampled_images.element_size() / 1024:.0f} KB) "
+              f"per il task {len(self.past_replay_images)-1}")

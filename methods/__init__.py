@@ -1,7 +1,7 @@
 from .cutpaste import CutPaste
+from .dne import DNE
 from .dne_EWC import DNE_EWC
-from .dne_EWC2 import DNE_EWC2
-from .dne_hybrid import DNE_Hybrid
+from .dne_replay_ewc import DNE_Replay_EWC
 from .csflow import CSFlow
 from .panda import PANDA
 from .revdis import RevDis
@@ -13,14 +13,14 @@ from .agem import AGEM
 
 
 def get_model(args, net, optimizer, scheduler):
-    if args.model.method == 'dne_ewc':
+    if args.model.method == 'dne':
+        model = DNE(args, net, optimizer, scheduler)
+        args.dataset.strong_augmentation = True
+    elif args.model.method == 'dne_ewc':
         model = DNE_EWC(args, net, optimizer, scheduler)
         args.dataset.strong_augmentation = True
-    elif args.model.method == 'dne_ewc2':
-        model = DNE_EWC2(args, net, optimizer, scheduler)
-        args.dataset.strong_augmentation = True
-    elif args.model.method == 'dne_hybrid':
-        model = DNE_Hybrid(args, net, optimizer, scheduler)
+    elif args.model.method == 'dne_replay_ewc':
+        model = DNE_Replay_EWC(args, net, optimizer, scheduler)
         args.dataset.strong_augmentation = True
     elif args.model.method == 'upper':
         model = CutPaste(args, net, optimizer, scheduler)

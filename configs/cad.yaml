@@ -12,9 +12,9 @@ dataset:
 
 
 model:
-  name: efficientnet # resnet, vit, net_csflow, net_revdis, convnext
+  name: vit # resnet, vit, net_csflow, net_revdis, convnext
   pretrained: True
-  method: dne_ewc2 # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
+  method: dne_replay_ewc # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne
   fix_head: True
   with_dne: True
