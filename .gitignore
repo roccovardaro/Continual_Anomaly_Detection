@@ -11,6 +11,7 @@ __pycache__/
 *.pyo
 *.pyd
 datasets/mvtec
+datasets/VisA
 checkpoints.DS_Store
 checkpoints
 .DS_Store

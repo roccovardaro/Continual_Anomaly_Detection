@@ -1,20 +1,20 @@
 name: continual anomaly detection
 dataset:
-  name: seq-mvtec  # seq-mvtec or seq-mtd-mvtec or joint-mtd-mvtec
+  name: seq-visa  # seq-mvtec, seq-visa, seq-mtd-mvtec, joint-mtd-mvtec
   image_size: 224  # 224; revdis: 256; csflow: 768
   num_workers: 4
   data_incre_setting: mul # mul: 3+3+3+3+3; one: 10+1+1+1+1+1
   n_classes_per_task: 3  # mul_class_incre: 3; one_class_incre:1. if joint: 15
-  n_tasks: 5  # mul_class_incre: 5; seq-mtd-mvtec, one_class_incre：6. if joint: 1
+  n_tasks: 5  # seq-mvtec mul: 5, one: 6; seq-visa mul: 4, one: 5; joint: 1
   dataset_order: 1 # 1, 2, 3
   strong_augmentation: True # strong augmentation: cutpaste, maskimg, etc.; weak augmentation: ColorJitter, RandomRotation, etc.
   random_aug: False
 
 
 model:
-  name: vit # resnet, vit, net_csflow, net_revdis, convnext
+  name: efficientnet # resnet, vit, net_csflow, net_revdis, convnext
   pretrained: True
-  method: dne_replay_ewc # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
+  method: dne # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne
   fix_head: True
   with_dne: True
