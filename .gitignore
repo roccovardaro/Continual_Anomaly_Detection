@@ -18,3 +18,4 @@ checkpoints
 hist_results
 tsne_results
 umap_results
+training_times.csv
