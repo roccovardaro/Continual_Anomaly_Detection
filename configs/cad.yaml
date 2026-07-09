@@ -1,6 +1,6 @@
 name: continual anomaly detection
 dataset:
-  name: seq-visa  # seq-mvtec, seq-visa, seq-mtd-mvtec, joint-mtd-mvtec
+  name: seq-mvtec  # seq-mvtec, seq-visa, seq-mtd-mvtec, joint-mtd-mvtec
   image_size: 224  # 224; revdis: 256; csflow: 768
   num_workers: 4
   data_incre_setting: mul # mul: 3+3+3+3+3; one: 10+1+1+1+1+1
@@ -12,9 +12,9 @@ dataset:
 
 
 model:
-  name: efficientnet # resnet, vit, net_csflow, net_revdis, convnext
+  name: convnext # resnet, vit, net_csflow, net_revdis, convnext
   pretrained: True
-  method: dne # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
+  method: dne_replay_ewc # dne, panda, cutpaste, csflow, revdis, er, der, derpp, fdr, agem, upper
   # dne
   fix_head: True
   with_dne: True
