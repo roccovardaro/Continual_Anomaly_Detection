@@ -37,14 +37,14 @@ train:
   warmup_lr: 0
   base_lr: 0.0001 # 0.0001; csflow: 0.0002; revdis:0.005
   final_lr: 0
-  num_epochs: 20 #50
-  batch_size: 8 # 32, csflow:16
+  num_epochs: 30 #50
+  batch_size: 32 # 32, csflow:16
   test_epochs: 5 #10
   alpha: 0.4
   beta: 0.5
   num_classes: 2
   ewc_lambda: 5000.0  # peso della penalizzazione EWC
-  real_embed_ratio: 0.05  # percentuale di embedding reali dalla backbone per densità (solo per dne_hybrid)
+  real_embed_ratio: 0.05  # percentuale di embedding reali dalla backbone per densità (solo per dne_replay_ewc)
 
 eval:
   eval_classifier: density # density, head

@@ -14,8 +14,6 @@ class DNE_EWC(BaseMethod):
         # EWC (Paper: Kirkpatrick et al., PNAS 2017)
         # fisher= matrice di Fisher; optar= parametri ottimali
         # Lista di dizionari {fisher, optpar} — uno per ogni task completato.
-        # Nel paper, la penalizzazione somma su TUTTI i task passati,
-        # quindi serve mantenere una Fisher separata per ogni task.
         self.ewc_tasks = []
         self.ewc_lambda = getattr(args.train, 'ewc_lambda', 5000.0)
 
@@ -112,7 +110,6 @@ class DNE_EWC(BaseMethod):
         # CALCOLO DELLA MATRICE DI FISHER (EWC - Paper: Kirkpatrick et al. 2017)
         # A differenza della versione precedente dove self.fisher veniva sovrascritta,
         # qui calcoliamo la Fisher per questo task e la AGGIUNGIAMO alla lista.
-        # Così la penalizzazione nel forward può sommare su TUTTI i task passati.
         task_fisher = {}
         task_optpar = {}
         
@@ -146,15 +143,15 @@ class DNE_EWC(BaseMethod):
             loss = self.loss_fn(out, labels)
             loss.backward()
 
-            # cuore del calcolo della Fisher Information
+            # CALCOLO DELLA FISHER INFORMATION
             for name, param in self.net.named_parameters():
-                # param.requires_grad esclude parametri congelati (es. head bloccata)
+                
                 # param.grad is not None il gradiente è stato calcolato evita errori su layer non coinvolti nel forward
                 if param.requires_grad and param.grad is not None:
                     # param.grad.data = ∂θ/∂L
                     task_fisher[name] += param.grad.data.pow(2) / len(train_dataloader)
                     
-        # AGGIUNGI alla lista dei task (NON sovrascrivere)
+        # AGGIUNGE alla lista dei task
         self.ewc_tasks.append({
             'fisher': task_fisher,
             'optpar': task_optpar

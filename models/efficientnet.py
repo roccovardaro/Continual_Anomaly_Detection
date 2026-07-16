@@ -28,7 +28,7 @@ class EfficientNetModel(nn.Module):
             *sequential_layers
         )
         
-        # Replace the classifier of EfficientNet with Identity RIMUOVE LA TESTA ORIGINALE
+        # Replace the classifier (original head) of EfficientNet with Identity 
         self.backbone.classifier = nn.Identity()
         
         # Create our custom head
@@ -60,7 +60,7 @@ class EfficientNetModel(nn.Module):
             param.requires_grad = True
 
 
-    #QUESTA PARTE SUPER IMPORTANTE
+    #PARTE IMPORTANTE
     def train(self, mode=True):
         """Override del metodo train per forzare la BatchNorm del backbone in eval."""
         super(EfficientNetModel, self).train(mode)

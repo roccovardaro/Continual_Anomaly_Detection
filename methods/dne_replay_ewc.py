@@ -12,15 +12,6 @@ from datasets.transforms import no_aug_transformation
 class DNE_Replay_EWC(BaseMethod):
     """
     DNE con Image Replay Buffer + EWC (Kirkpatrick et al., PNAS 2017).
-    
-    Strategia A: invece di salvare embedding reali (che diventano stale
-    quando la backbone cambia nei task successivi), salva un buffer di
-    IMMAGINI raw e ricalcola gli embedding on-the-fly con la backbone
-    corrente durante training_epoch. Questo garantisce che gli embedding
-    reali siano sempre coerenti con il feature space corrente.
-    
-    EWC standard: mantiene una Fisher separata per ogni task passato e somma
-    la penalizzazione su TUTTI i task.
     """
 
     def __init__(self, args, net, optimizer, scheduler):
@@ -30,8 +21,7 @@ class DNE_Replay_EWC(BaseMethod):
         # EWC (Paper: Kirkpatrick et al., PNAS 2017)
         # fisher= matrice di Fisher; optpar= parametri ottimali
         # Lista di dizionari {fisher, optpar} — uno per ogni task completato.
-        # Nel paper, la penalizzazione somma su TUTTI i task passati,
-        # quindi serve mantenere una Fisher separata per ogni task.
+
         self.ewc_tasks = []
         self.ewc_lambda = getattr(args.train, 'ewc_lambda', 5000.0)
 
@@ -39,7 +29,6 @@ class DNE_Replay_EWC(BaseMethod):
         self.real_embed_ratio = getattr(args.train, 'real_embed_ratio', 0.05)
 
         # Buffer di immagini raw salvate alla fine di ogni task (lista di tensori CPU)
-        # Le immagini vengono ri-processate con la backbone corrente in training_epoch
         self.past_replay_images = []
 
     def forward(self, epoch, inputs, labels, one_epoch_embeds, t, *args):
@@ -200,10 +189,9 @@ class DNE_Replay_EWC(BaseMethod):
                 # param.requires_grad esclude parametri congelati (es. head bloccata)
                 # param.grad is not None il gradiente è stato calcolato evita errori su layer non coinvolti nel forward
                 if param.requires_grad and param.grad is not None:
-                    # param.grad.data = ∂θ/∂L
                     task_fisher[name] += param.grad.data.pow(2) / len(train_dataloader)
                     
-        # AGGIUNGI alla lista dei task (NON sovrascrivere)
+        # AGGIUNGE alla lista dei task
         self.ewc_tasks.append({
             'fisher': task_fisher,
             'optpar': task_optpar
@@ -214,10 +202,6 @@ class DNE_Replay_EWC(BaseMethod):
     def _save_replay_images(self, train_dataloader):
         """
         Salva un buffer di immagini raw (senza augmentation) alla fine del task.
-        
-        Le immagini vengono salvate come tensori CPU e ricalcolate con la
-        backbone corrente durante training_epoch, eliminando il problema
-        degli embedding stale.
         """
 
         dataset = train_dataloader.dataset
@@ -226,7 +210,7 @@ class DNE_Replay_EWC(BaseMethod):
         # Calcola quante immagini salvare
         n_real = int(total_samples * self.real_embed_ratio)
         if n_real <= 0:
-            print(f"[DNE_Hybrid_2] real_embed_ratio troppo basso, nessuna immagine salvata per il task {len(self.past_replay_images)}")
+            print(f"[DNE_Replay_EWC] real_embed_ratio troppo basso, nessuna immagine salvata per il task {len(self.past_replay_images)}")
             self.past_replay_images.append(torch.empty(0))
             return
 
@@ -246,10 +230,10 @@ class DNE_Replay_EWC(BaseMethod):
             subset,
             batch_size=train_dataloader.batch_size,
             shuffle=False,
-            num_workers=0  # evita problemi con fork e transform modificata
+            num_workers=0
         )
 
-        # 5. Raccoglie le immagini raw (tensori CPU, senza forward pass)
+        # 5. Raccoglie le immagini raw
         sampled_images = []
         for data in sample_loader:
             if isinstance(data, list):
@@ -264,6 +248,6 @@ class DNE_Replay_EWC(BaseMethod):
         sampled_images = torch.cat(sampled_images, dim=0)
             
         self.past_replay_images.append(sampled_images)
-        print(f"[DNE_Hybrid_2] Salvate {sampled_images.size(0)} immagini replay "
+        print(f"[DNE_Replay_EWC] Salvate {sampled_images.size(0)} immagini replay "
               f"({sampled_images.shape}, {sampled_images.nelement() * sampled_images.element_size() / 1024:.0f} KB) "
               f"per il task {len(self.past_replay_images)-1}")
