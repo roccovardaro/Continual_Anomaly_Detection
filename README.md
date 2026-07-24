@@ -4,18 +4,26 @@ Official code for ACMMM 2022 paper:
 
 **Title:** Towards Continual Adaptation in Industrial Anomaly Detection  [[pdf]](https://dl.acm.org/doi/pdf/10.1145/3503161.3548232?casa_token=DjLhJL0kQl8AAAAA:AQyuwCMk4m_bNFtyfFi3YJu-lHa7-EIRrdgztanRKsf5f0535ROUoponI9gAZIrx4_PrUDjta64dNg). 
 
-
 ## Datasets
 To train on the MVTec Anomaly Detection dataset [download](https://www.mvtec.com/company/research/datasets/mvtec-ad) 
 the data and extract it. For the additional Magnetic Tile Defects dataset, we [download](https://github.com/abin24/Magnetic-tile-defect-datasets.) the data then run **datasets/utils/make_mtd_ano.py** for anomaly detection.
+Additionally, this project integrates the **VisA** dataset for extended evaluation.
+
+## Models (Backbones)
+This repository extends the original implementation by adding support for modern backbones:
+- **EfficientNet**
+- **ConvNext**
+- **ViT** (Original): ViT-B/16 model used in this paper can be downloaded at [here](https://storage.googleapis.com/vit_models/sam/ViT-B_16.npz).
+
+## Continual Learning Methods
+In addition to the original methods, the following novel strategies have been integrated to better mitigate catastrophic forgetting:
+- **dne_EWC**: Combines DNE with Elastic Weight Consolidation (EWC).
+- **dne_replay_ewc**: A hybrid approach integrating DNE with both Experience Replay and EWC.
 
 ## Enviroment setup
 ```
 pip install -r requirements.txt
 ```
-
-## Getting pretrained ViT model
-ViT-B/16 model used in this paper can be downloaded at [here](https://storage.googleapis.com/vit_models/sam/ViT-B_16.npz).
 
 ## Run
 We provide the configuration file to run CAD on multiple benchmarks in `configs`.
@@ -23,5 +31,11 @@ We provide the configuration file to run CAD on multiple benchmarks in `configs`
 ```
 python main.py --config-file ./configs/cad.yaml  --data_dir ../datasets/mvtec --mtd_dir ../datasets/mtd_ano_mask
 ```
-You can run the method you need by modifying the configuration file.
+
+To run with the VisA dataset, you can use its specific configuration file:
+```
+python main.py --config-file ./configs/cad_VisA.yaml  --data_dir ../datasets/VisA
+```
+
+You can run the method and backbone you need (e.g., EfficientNet, ConvNext, dne_EWC) by modifying the configuration file.
 
